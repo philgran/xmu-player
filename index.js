@@ -1,15 +1,20 @@
-var request = require('request');
-var cheerio = require('cheerio');
-var http = require('http');
-var fs = require('fs');
-var readJson = require('r-json');
-var opn = require('opn');
-var Youtube = require('youtube-api');
+const request = require('request');
+const cheerio = require('cheerio');
+const fs = require('fs');
+const readJson = require('r-json');
+const Lien = require('lien');
+const opn = require('opn');
+const Youtube = require('youtube-api');
 
-const PORT = 8080;
 const CREDENTIALS = readJson(`${__dirname}/credentials.json`);
+const PLAYLIST_URL = 'http://www.dogstarradio.com/search_xm_playlist.php?channel=35';
 
-var oauth = Youtube.authenticate({
+let server = new Lien({
+  host: 'localhost',
+  port: 8080
+});
+
+let oauth = Youtube.authenticate({
   type: 'oauth',
   client_id: CREDENTIALS.web.client_id,
   client_secret: CREDENTIALS.web.client_secret,
@@ -18,42 +23,147 @@ var oauth = Youtube.authenticate({
 
 opn(oauth.generateAuthUrl({
   access_type: 'offline',
-  scope: 'https://www.googleapis.com/auth/youtube'
+  scope: ['https://www.googleapis.com/auth/youtube']
 }));
 
-function doSearch() {
-  oauth.getToken()
-}
+server.addPage('/oauth2callback', lien => {
+  oauth.getToken(lien.query.code, (err, tokens) => {
 
-//We need a function which handles requests and send response
-function handleRequest(req, res){
-  fs.readFile(__dirname + req.url, function(err, data) {
     if (err) {
-      res.writeHead(404);
-      res.end(JSON.stringify(err));
+      console.log(JSON.stringify(err));
       return;
     }
+
+    oauth.setCredentials(tokens);
+
+    // Applicattion flow
     request({
-      uri: 'http://www.dogstarradio.com/search_xm_playlist.php?channel=35'
-    }, function(error, response, body){
-      return parseSongs(body);
+      uri: PLAYLIST_URL
+    }, (error, response, body) => {
+      let runningSearches = [];
+      let runningAdditions = [];
+      const queries = parseSongs(body);
+      const playlist = createPlaylist().then(playlistResponse => {
+        const pid = playlistResponse.id;
+        const cid = playlistResponse.snippet.channelId;
+
+        // Search for videos and compile list of video ids
+        queries.each((index, query) => {
+          // Add findResult promise to the search queries array
+          runningSearches.push(findResult(query));
+        });
+
+        Promise.all(runningSearches).then(values => {
+          // Filter out false values from empty responses
+          values = values.filter(Boolean);
+          let counter = 0;
+
+          function loop(vid) {
+            addResultToPlaylist(vid, pid, cid);
+            setTimeout(() => {
+              counter++;
+              if (counter < values.length) {
+                loop(values[counter]);
+              }
+            }, 3000);
+          }
+
+          loop(values[counter]);
+        }, reason => {
+          console.log('rejected:', reason);
+        });
+
+      });
     });
-    res.writeHead(200);
-    res.end(data);
+
   });
+});
+
+function addResultToPlaylist(vid, pid, cid) {
+  const insertPromise = new Promise((resolve, reject) => {
+    Youtube.playlistItems.insert({
+      part: 'snippet',
+      resource: {
+        snippet: {
+          playlistId: pid,
+          playlistTitle: 'Test Playlist',
+          resourceId: {
+            kind: 'youtube#video',
+            videoId: vid
+          }
+        }
+      }
+    }, (err, response, msg) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(response);
+      }
+    });
+  });
+  return insertPromise;
+}
+
+function findResult(query) {
+  const searchPromise = new Promise((resolve, reject) => {
+    Youtube.search.list({
+      part: 'snippet',
+      maxResults: 1,
+      q: query,
+      type: 'video'
+    }, (err, response, msg) => {
+      if (err) {
+        reject(err);
+      } else {
+        // Return if there are no results in the items array
+        if (response.items.length === 0) {
+          resolve(false);
+          return;
+        }
+        // Otherwise return the video id
+        const videoId = response.items[0].id.videoId;
+        resolve(videoId);
+      }
+    });
+  });
+  return searchPromise;
+}
+
+function createPlaylist() {
+  const playlistPromise = new Promise((resolve, reject) => {
+    Youtube.playlists.insert({
+      part: 'snippet,status',
+      resource: {
+        snippet: {
+          title: 'Real Playlist',
+          description: 'A private playlist created with the YouTube API'
+        },
+        status: {
+          privacyStatus: 'private'
+        }
+      }
+    }, (err, response, msg) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(response);
+      }
+    });
+  });
+  return playlistPromise;
 }
 
 function parseSongs(body) {
-  var $page = cheerio.load(body);
-  var allRows = $page('body > center > table > tr');
-  var tbodyRows = allRows.slice(3, allRows.length-1);
+  const $page = cheerio.load(body);
+  const allRows = $page('body > center > table > tr');
+  const tbodyRows = allRows.slice(3, allRows.length-1);
 
   // If tbody row contains an @ or / assume it is a 
   // twitter handle or URL and filter it out.
-  var songRows = tbodyRows.filter(function(index, element){
-    var weedout = '@|\/';
-    var artist = element.children[1].children[0].data;
-    var song = element.children[2].children[0].data;
+  const songRows = tbodyRows.filter((index, element) => {
+    const weedout = /(@|\/)/;
+    const artist = element.children[1].children[0].data;
+    const song = element.children[2].children[0].data;
 
     if (!artist.match(weedout) || !song.match(weedout)) {
       return element;
@@ -61,23 +171,11 @@ function parseSongs(body) {
   });
 
   // Extract artist and song then join to form query
-  var queries = songRows.map(function(index, row){
-    var artist = row.children[1].children[0].data;
-    var song = row.children[2].children[0].data;
+  const queries = songRows.map((index, row) => {
+    const artist = row.children[1].children[0].data;
+    const song = row.children[2].children[0].data;
     return artist + ' ' + song;
   });
 
   return queries;
 }
-
-var server = http.createServer(handleRequest);
-
-//Lets start our server
-server.listen(PORT, function(){
-  //Callback triggered when server is successfully listening. Hurray!
-  console.log("Server listening on: http://localhost:%s", PORT);
-});
-
-server.listen('/oauth2callback', function(){
-  doSearch();
-});

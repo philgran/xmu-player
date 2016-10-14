@@ -1,9 +1,15 @@
+h3. TODO:
+
+* Create a new google/yt account to house the playlists.
+* Re-generate oauth tokens/API keys from new account.
+
 h4. Input:
 
 Playlist from xmu, xmu show, blog, etc. Ideally XML from RSS feed or similar, probably more like a screen scrape.
 * Brooklyn Vegan
 * Gorilla vs. Blog
 * My Old Kentucky Blog
+* Aquarium Drunkard
 
 h4. Output:
 

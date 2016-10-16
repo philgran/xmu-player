@@ -5,6 +5,7 @@ const readJson = require('r-json');
 const Lien = require('lien');
 const opn = require('opn');
 const Youtube = require('youtube-api');
+const moment = require('moment');
 
 const CREDENTIALS = readJson(`${__dirname}/credentials.json`);
 const PLAYLIST_URL = 'http://www.dogstarradio.com/search_xm_playlist.php?channel=35';
@@ -40,12 +41,15 @@ server.addPage('/oauth2callback', lien => {
     request({
       uri: PLAYLIST_URL
     }, (error, response, body) => {
-      let runningSearches = [];
-      let runningAdditions = [];
+      let pid,
+          cid,
+          runningSearches = [],
+          runningAdditions = [];
+
       const queries = parseSongs(body);
       const playlist = createPlaylist().then(playlistResponse => {
-        const pid = playlistResponse.id;
-        const cid = playlistResponse.snippet.channelId;
+        pid = playlistResponse.id;
+        cid = playlistResponse.snippet.channelId;
 
         // Search for videos and compile list of video ids
         queries.each((index, query) => {
@@ -76,10 +80,16 @@ server.addPage('/oauth2callback', lien => {
       });
     });
 
+    // Returning here to see if that lets the OAuth call finish
+    return;
   });
+
+  // Returning here to see if that lets the OAuth call finish
+  return;
 });
 
 function addResultToPlaylist(vid, pid, cid) {
+  console.log(`Adding ${vid} to ${pid} on channel ${cid}`);
   const insertPromise = new Promise((resolve, reject) => {
     Youtube.playlistItems.insert({
       part: 'snippet',
@@ -130,12 +140,14 @@ function findResult(query) {
 }
 
 function createPlaylist() {
+  const now = moment(new Date()).format('MMM Do YYYY');
+  const title = `XMU Playlist ${now}`;
   const playlistPromise = new Promise((resolve, reject) => {
     Youtube.playlists.insert({
       part: 'snippet,status',
       resource: {
         snippet: {
-          title: 'Real Playlist',
+          title: title,
           description: 'A private playlist created with the YouTube API'
         },
         status: {
@@ -146,6 +158,7 @@ function createPlaylist() {
       if (err) {
         reject(err);
       } else {
+        console.log(`Created ${title}.`);
         resolve(response);
       }
     });

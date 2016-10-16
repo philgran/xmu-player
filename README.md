@@ -1,3 +1,7 @@
+h2. Running
+
+Run node index.js.
+
 h3. TODO:
 
 * Create a new google/yt account to house the playlists.

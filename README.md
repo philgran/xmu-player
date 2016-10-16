@@ -1,17 +1,17 @@
-h2. Installing
+## Installing
 
 npm install
 
-h2. Running
+## Running
 
 Run node index.js.
 
-h3. TODO:
+### TODO:
 
 * Create a new google/yt account to house the playlists.
 * Re-generate oauth tokens/API keys from new account.
 
-h4. Input:
+#### Input:
 
 Playlist from xmu, xmu show, blog, etc. Ideally XML from RSS feed or similar, probably more like a screen scrape.
 * Brooklyn Vegan
@@ -19,11 +19,11 @@ Playlist from xmu, xmu show, blog, etc. Ideally XML from RSS feed or similar, pr
 * My Old Kentucky Blog
 * Aquarium Drunkard
 
-h4. Output:
+#### Output:
 
 Youtube playlist of all songs from feed.
 
-h4. Steps:
+#### Steps:
 
 * Download RSS or HTML from web page
 * Parse list for artists/tracks

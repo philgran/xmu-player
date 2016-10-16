@@ -1,3 +1,7 @@
+h2. Installing
+
+npm install
+
 h2. Running
 
 Run node index.js.

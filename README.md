@@ -1,3 +1,8 @@
+# XMU Player
+
+This is a simple node app that generates a playlist of youtube videos from a playlist of songs played on the Sirius
+satellite radio station XMU.
+
 ## Installing
 
 npm install

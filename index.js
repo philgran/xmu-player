@@ -47,7 +47,13 @@ server.addPage('/oauth2callback', lien => {
           runningAdditions = [];
 
       const queries = parseSongs(body);
-      const playlist = createPlaylist().then(playlistResponse => {
+      let names = [];
+      queries.each((index, query) => {
+        names.push(query);
+      });
+      const description = names.join('\n');
+      debugger;
+      const playlist = createPlaylist(description).then(playlistResponse => {
         pid = playlistResponse.id;
         cid = playlistResponse.snippet.channelId;
 
@@ -96,7 +102,7 @@ function addResultToPlaylist(vid, pid, cid) {
       resource: {
         snippet: {
           playlistId: pid,
-          playlistTitle: 'Test Playlist',
+          playlistTitle: 'XMU Playlist',
           resourceId: {
             kind: 'youtube#video',
             videoId: vid
@@ -139,7 +145,7 @@ function findResult(query) {
   return searchPromise;
 }
 
-function createPlaylist() {
+function createPlaylist(description) {
   const now = moment(new Date()).format('MMM Do YYYY');
   const title = `XMU Playlist ${now}`;
   const playlistPromise = new Promise((resolve, reject) => {
@@ -148,7 +154,7 @@ function createPlaylist() {
       resource: {
         snippet: {
           title: title,
-          description: 'A private playlist created with the YouTube API'
+          description: description
         },
         status: {
           privacyStatus: 'private'

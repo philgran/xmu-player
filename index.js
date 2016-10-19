@@ -52,7 +52,6 @@ server.addPage('/oauth2callback', lien => {
         names.push(query);
       });
       const description = names.join('\n');
-      debugger;
       const playlist = createPlaylist(description).then(playlistResponse => {
         pid = playlistResponse.id;
         cid = playlistResponse.snippet.channelId;

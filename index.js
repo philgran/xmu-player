@@ -121,10 +121,13 @@ function addResultToPlaylist(vid, pid, cid) {
 
 function findResult(query) {
   const searchPromise = new Promise((resolve, reject) => {
+    console.log('Searching for ', query);
     Youtube.search.list({
       part: 'snippet',
       maxResults: 1,
       q: query,
+      videoCategoryId: 10,
+      // topicId: '/m/04rlf',
       type: 'video'
     }, (err, response, msg) => {
       if (err) {

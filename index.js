@@ -65,19 +65,14 @@ server.addPage('/oauth2callback', lien => {
         Promise.all(runningSearches).then(values => {
           // Filter out false values from empty responses
           values = values.filter(Boolean);
-          let counter = 0;
-
-          function loop(vid) {
-            addResultToPlaylist(vid, pid, cid);
-            setTimeout(() => {
-              counter++;
-              if (counter < values.length) {
-                loop(values[counter]);
-              }
-            }, 3000);
-          }
-
-          loop(values[counter]);
+          
+          const additionPromises = values.map(vid => addResultToPlaylist(vid, pid, cid));
+          
+          Promise.all(additionPromises).then(results => {
+            console.log(`Successfully added ${results.length} videos to playlist ${pid}`);
+          }).catch(error => {
+            console.error('Error adding videos to playlist:', error);
+          });
         }, reason => {
           console.log('rejected:', reason);
         });
@@ -95,7 +90,7 @@ server.addPage('/oauth2callback', lien => {
 
 function addResultToPlaylist(vid, pid, cid) {
   console.log(`Adding ${vid} to ${pid} on channel ${cid}`);
-  const insertPromise = new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     Youtube.playlistItems.insert({
       part: 'snippet',
       resource: {
@@ -110,13 +105,14 @@ function addResultToPlaylist(vid, pid, cid) {
       }
     }, (err, response, msg) => {
       if (err) {
+        console.error(`Failed to add video ${vid}:`, err);
         reject(err);
       } else {
+        console.log(`Successfully added video ${vid} to playlist`);
         resolve(response);
       }
     });
   });
-  return insertPromise;
 }
 
 function findResult(query) {

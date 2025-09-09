@@ -8,7 +8,7 @@ const Youtube = require('youtube-api');
 const moment = require('moment');
 
 const CREDENTIALS = readJson(`${__dirname}/credentials.json`);
-const PLAYLIST_URL = 'http://www.dogstarradio.com/search_xm_playlist.php?channel=35';
+const PLAYLIST_URL = 'https://xmplaylist.com/station/siriusxmu';
 
 let server = new Lien({
   host: 'localhost',
@@ -169,27 +169,38 @@ function createPlaylist(description) {
 
 function parseSongs(body) {
   const $page = cheerio.load(body);
-  const allRows = $page('body > center > table > tr');
-  const tbodyRows = allRows.slice(3, allRows.length-1);
-
-  // If tbody row contains an @ or / assume it is a 
-  // twitter handle or URL and filter it out.
-  const songRows = tbodyRows.filter((index, element) => {
-    const weedout = /(@|\/)/;
-    const artist = element.children[1].children[0].data;
-    const song = element.children[2].children[0].data;
-
-    if (!artist.match(weedout) || !song.match(weedout)) {
-      return element;
+  
+  const songTitles = $page('h3');
+  
+  const queries = [];
+  
+  songTitles.each((index, element) => {
+    const $element = $page(element);
+    const songTitle = $element.text().trim();
+    
+    const $artistList = $element.next('ul');
+    
+    if ($artistList.length > 0) {
+      const artists = [];
+      $artistList.find('li').each((i, artistElement) => {
+        const artistName = $page(artistElement).text().trim();
+        if (artistName) {
+          artists.push(artistName);
+        }
+      });
+      
+      const artistString = artists.join(' ');
+      
+      if (artistString && songTitle) {
+        queries.push(artistString + ' ' + songTitle);
+      }
     }
   });
-
-  // Extract artist and song then join to form query
-  const queries = songRows.map((index, row) => {
-    const artist = row.children[1].children[0].data;
-    const song = row.children[2].children[0].data;
-    return artist + ' ' + song;
+  
+  const $queries = $page('<div>');
+  queries.forEach(query => {
+    $queries.append($page('<span>').text(query));
   });
-
-  return queries;
+  
+  return $queries.children();
 }
